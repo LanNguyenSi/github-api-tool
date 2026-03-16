@@ -1,0 +1,147 @@
+import { getOctokit, parseRepo, withRetry } from '../github.js';
+import { output, success, error as outputError } from '../utils/output.js';
+export function registerPRCommands(program) {
+    const pr = program.command('pr').description('Manage pull requests');
+    // List PRs
+    pr.command('list')
+        .description('List pull requests')
+        .requiredOption('-r, --repo <owner/repo>', 'Repository')
+        .option('-s, --state <state>', 'PR state (open, closed, all)', 'open')
+        .option('--limit <number>', 'Maximum number of results', '30')
+        .option('--json', 'Output as JSON')
+        .action(async (options) => {
+        try {
+            const { owner, repo } = parseRepo(options.repo);
+            const octokit = await getOctokit();
+            const result = await withRetry(async () => octokit.rest.pulls.list({
+                owner,
+                repo,
+                state: options.state,
+                per_page: parseInt(options.limit),
+            }));
+            const prs = result.data.map((pr) => ({
+                number: pr.number,
+                title: pr.title,
+                state: pr.state,
+                author: pr.user?.login,
+                created_at: pr.created_at,
+                url: pr.html_url,
+            }));
+            output(prs, { json: options.json });
+        }
+        catch (err) {
+            outputError('Failed to list PRs', err);
+            process.exit(1);
+        }
+    });
+    // Comment on PR
+    pr.command('comment')
+        .description('Add a comment to a pull request')
+        .requiredOption('-r, --repo <owner/repo>', 'Repository')
+        .requiredOption('-p, --pr <number>', 'PR number')
+        .requiredOption('-b, --body <body>', 'Comment body')
+        .option('--json', 'Output as JSON')
+        .action(async (options) => {
+        try {
+            const { owner, repo } = parseRepo(options.repo);
+            const octokit = await getOctokit();
+            const result = await withRetry(async () => octokit.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: parseInt(options.pr),
+                body: options.body,
+            }));
+            output({
+                id: result.data.id,
+                url: result.data.html_url,
+                created_at: result.data.created_at,
+            }, { json: options.json });
+            if (!options.json) {
+                success(`Comment added to PR #${options.pr}`);
+            }
+        }
+        catch (err) {
+            outputError('Failed to add comment', err);
+            process.exit(1);
+        }
+    });
+    // Review PR
+    pr.command('review')
+        .description('Submit a pull request review')
+        .requiredOption('-r, --repo <owner/repo>', 'Repository')
+        .requiredOption('-p, --pr <number>', 'PR number')
+        .requiredOption('-e, --event <event>', 'Review event (APPROVE, REQUEST_CHANGES, COMMENT)')
+        .requiredOption('-b, --body <body>', 'Review body')
+        .option('--json', 'Output as JSON')
+        .action(async (options) => {
+        try {
+            const { owner, repo } = parseRepo(options.repo);
+            const octokit = await getOctokit();
+            const validEvents = ['APPROVE', 'REQUEST_CHANGES', 'COMMENT'];
+            if (!validEvents.includes(options.event)) {
+                throw new Error(`Invalid review event: ${options.event}. Must be one of: ${validEvents.join(', ')}`);
+            }
+            const result = await withRetry(async () => octokit.rest.pulls.createReview({
+                owner,
+                repo,
+                pull_number: parseInt(options.pr),
+                event: options.event,
+                body: options.body,
+            }));
+            output({
+                id: result.data.id,
+                state: result.data.state,
+                submitted_at: result.data.submitted_at,
+                url: result.data.html_url,
+            }, { json: options.json });
+            if (!options.json) {
+                success(`Review submitted for PR #${options.pr} (${options.event})`);
+            }
+        }
+        catch (err) {
+            outputError('Failed to submit review', err);
+            process.exit(1);
+        }
+    });
+    // Merge PR
+    pr.command('merge')
+        .description('Merge a pull request')
+        .requiredOption('-r, --repo <owner/repo>', 'Repository')
+        .requiredOption('-p, --pr <number>', 'PR number')
+        .option('-m, --method <method>', 'Merge method (merge, squash, rebase)', 'merge')
+        .option('--json', 'Output as JSON')
+        .action(async (options) => {
+        try {
+            const { owner, repo } = parseRepo(options.repo);
+            const octokit = await getOctokit();
+            const validMethods = ['merge', 'squash', 'rebase'];
+            if (!validMethods.includes(options.method)) {
+                throw new Error(`Invalid merge method: ${options.method}. Must be one of: ${validMethods.join(', ')}`);
+            }
+            const result = await withRetry(async () => octokit.rest.pulls.merge({
+                owner,
+                repo,
+                pull_number: parseInt(options.pr),
+                merge_method: options.method,
+            }));
+            output({
+                merged: result.data.merged,
+                sha: result.data.sha,
+                message: result.data.message,
+            }, { json: options.json });
+            if (!options.json) {
+                if (result.data.merged) {
+                    success(`PR #${options.pr} merged successfully`);
+                }
+                else {
+                    outputError('PR merge failed');
+                }
+            }
+        }
+        catch (err) {
+            outputError('Failed to merge PR', err);
+            process.exit(1);
+        }
+    });
+}
+//# sourceMappingURL=prs.js.map
