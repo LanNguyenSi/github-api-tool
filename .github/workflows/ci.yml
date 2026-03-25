@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: cli/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./cli
+        run: npm ci
+
+      - name: Type check
+        working-directory: ./cli
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        working-directory: ./cli
+        run: npm test
+
+      - name: Build
+        working-directory: ./cli
+        run: npm run build
