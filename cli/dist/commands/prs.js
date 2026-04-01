@@ -1,4 +1,5 @@
 import { getOctokit, parseRepo, withRetry } from '../github.js';
+import { parsePositiveInteger } from '../utils/args.js';
 import { output, success, error as outputError } from '../utils/output.js';
 export function registerPRCommands(program) {
     const pr = program.command('pr').description('Manage pull requests');
@@ -12,22 +13,23 @@ export function registerPRCommands(program) {
         .action(async (options) => {
         try {
             const { owner, repo } = parseRepo(options.repo);
+            const limit = parsePositiveInteger(options.limit, '--limit');
             const octokit = await getOctokit();
             const result = await withRetry(async () => octokit.rest.pulls.list({
                 owner,
                 repo,
                 state: options.state,
-                per_page: parseInt(options.limit),
+                per_page: limit,
             }));
-            const prs = result.data.map((pr) => ({
-                number: pr.number,
-                title: pr.title,
-                state: pr.state,
-                author: pr.user?.login,
-                created_at: pr.created_at,
-                url: pr.html_url,
+            const pullRequests = result.data.map((pullRequest) => ({
+                number: pullRequest.number,
+                title: pullRequest.title,
+                state: pullRequest.state,
+                author: pullRequest.user?.login,
+                created_at: pullRequest.created_at,
+                url: pullRequest.html_url,
             }));
-            output(prs, { json: options.json });
+            output(pullRequests, { json: options.json });
         }
         catch (err) {
             outputError('Failed to list PRs', err);
@@ -44,11 +46,12 @@ export function registerPRCommands(program) {
         .action(async (options) => {
         try {
             const { owner, repo } = parseRepo(options.repo);
+            const pullRequestNumber = parsePositiveInteger(options.pr, '--pr');
             const octokit = await getOctokit();
             const result = await withRetry(async () => octokit.rest.issues.createComment({
                 owner,
                 repo,
-                issue_number: parseInt(options.pr),
+                issue_number: pullRequestNumber,
                 body: options.body,
             }));
             output({
@@ -76,6 +79,7 @@ export function registerPRCommands(program) {
         .action(async (options) => {
         try {
             const { owner, repo } = parseRepo(options.repo);
+            const pullRequestNumber = parsePositiveInteger(options.pr, '--pr');
             const octokit = await getOctokit();
             const validEvents = ['APPROVE', 'REQUEST_CHANGES', 'COMMENT'];
             if (!validEvents.includes(options.event)) {
@@ -84,7 +88,7 @@ export function registerPRCommands(program) {
             const result = await withRetry(async () => octokit.rest.pulls.createReview({
                 owner,
                 repo,
-                pull_number: parseInt(options.pr),
+                pull_number: pullRequestNumber,
                 event: options.event,
                 body: options.body,
             }));
@@ -113,6 +117,7 @@ export function registerPRCommands(program) {
         .action(async (options) => {
         try {
             const { owner, repo } = parseRepo(options.repo);
+            const pullRequestNumber = parsePositiveInteger(options.pr, '--pr');
             const octokit = await getOctokit();
             const validMethods = ['merge', 'squash', 'rebase'];
             if (!validMethods.includes(options.method)) {
@@ -121,7 +126,7 @@ export function registerPRCommands(program) {
             const result = await withRetry(async () => octokit.rest.pulls.merge({
                 owner,
                 repo,
-                pull_number: parseInt(options.pr),
+                pull_number: pullRequestNumber,
                 merge_method: options.method,
             }));
             output({

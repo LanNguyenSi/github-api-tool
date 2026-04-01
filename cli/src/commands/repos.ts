@@ -1,9 +1,21 @@
 import { Command } from 'commander';
 import { getOctokit, parseRepo, withRetry } from '../github.js';
+import { parsePositiveInteger } from '../utils/args.js';
 import { output, error as outputError } from '../utils/output.js';
 
 export function registerRepoCommands(program: Command): void {
   const repo = program.command('repo').description('Repository operations');
+
+  interface RepoListOptions {
+    repo: string;
+    limit: string;
+    json?: boolean;
+  }
+
+  interface RepoInfoOptions {
+    repo: string;
+    json?: boolean;
+  }
 
   // List commits
   repo
@@ -12,16 +24,17 @@ export function registerRepoCommands(program: Command): void {
     .requiredOption('-r, --repo <owner/repo>', 'Repository')
     .option('--limit <number>', 'Maximum number of results', '10')
     .option('--json', 'Output as JSON')
-    .action(async (options) => {
+    .action(async (options: RepoListOptions) => {
       try {
         const { owner, repo } = parseRepo(options.repo);
+        const limit = parsePositiveInteger(options.limit, '--limit');
         const octokit = await getOctokit();
 
         const result = await withRetry(async () =>
           octokit.rest.repos.listCommits({
             owner,
             repo,
-            per_page: parseInt(options.limit),
+            per_page: limit,
           })
         );
 
@@ -47,16 +60,17 @@ export function registerRepoCommands(program: Command): void {
     .requiredOption('-r, --repo <owner/repo>', 'Repository')
     .option('--limit <number>', 'Maximum number of results', '30')
     .option('--json', 'Output as JSON')
-    .action(async (options) => {
+    .action(async (options: RepoListOptions) => {
       try {
         const { owner, repo } = parseRepo(options.repo);
+        const limit = parsePositiveInteger(options.limit, '--limit');
         const octokit = await getOctokit();
 
         const result = await withRetry(async () =>
           octokit.rest.repos.listContributors({
             owner,
             repo,
-            per_page: parseInt(options.limit),
+            per_page: limit,
           })
         );
 
@@ -79,7 +93,7 @@ export function registerRepoCommands(program: Command): void {
     .description('Get repository information')
     .requiredOption('-r, --repo <owner/repo>', 'Repository')
     .option('--json', 'Output as JSON')
-    .action(async (options) => {
+    .action(async (options: RepoInfoOptions) => {
       try {
         const { owner, repo } = parseRepo(options.repo);
         const octokit = await getOctokit();

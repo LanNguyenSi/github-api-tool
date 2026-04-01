@@ -1,4 +1,5 @@
 import { getOctokit, parseRepo, withRetry } from '../github.js';
+import { parsePositiveInteger } from '../utils/args.js';
 import { output, error as outputError } from '../utils/output.js';
 export function registerRepoCommands(program) {
     const repo = program.command('repo').description('Repository operations');
@@ -12,11 +13,12 @@ export function registerRepoCommands(program) {
         .action(async (options) => {
         try {
             const { owner, repo } = parseRepo(options.repo);
+            const limit = parsePositiveInteger(options.limit, '--limit');
             const octokit = await getOctokit();
             const result = await withRetry(async () => octokit.rest.repos.listCommits({
                 owner,
                 repo,
-                per_page: parseInt(options.limit),
+                per_page: limit,
             }));
             const commits = result.data.map((commit) => ({
                 sha: commit.sha.substring(0, 7),
@@ -42,11 +44,12 @@ export function registerRepoCommands(program) {
         .action(async (options) => {
         try {
             const { owner, repo } = parseRepo(options.repo);
+            const limit = parsePositiveInteger(options.limit, '--limit');
             const octokit = await getOctokit();
             const result = await withRetry(async () => octokit.rest.repos.listContributors({
                 owner,
                 repo,
-                per_page: parseInt(options.limit),
+                per_page: limit,
             }));
             const contributors = result.data.map((contributor) => ({
                 login: contributor.login,

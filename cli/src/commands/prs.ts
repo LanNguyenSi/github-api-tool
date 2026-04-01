@@ -1,9 +1,39 @@
 import { Command } from 'commander';
 import { getOctokit, parseRepo, withRetry } from '../github.js';
+import { parsePositiveInteger } from '../utils/args.js';
 import { output, success, error as outputError } from '../utils/output.js';
 
 export function registerPRCommands(program: Command): void {
   const pr = program.command('pr').description('Manage pull requests');
+
+  interface PRListOptions {
+    repo: string;
+    state: 'open' | 'closed' | 'all';
+    limit: string;
+    json?: boolean;
+  }
+
+  interface PRCommentOptions {
+    repo: string;
+    pr: string;
+    body: string;
+    json?: boolean;
+  }
+
+  interface PRReviewOptions {
+    repo: string;
+    pr: string;
+    event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT';
+    body: string;
+    json?: boolean;
+  }
+
+  interface PRMergeOptions {
+    repo: string;
+    pr: string;
+    method: 'merge' | 'squash' | 'rebase';
+    json?: boolean;
+  }
 
   // List PRs
   pr.command('list')
@@ -12,9 +42,10 @@ export function registerPRCommands(program: Command): void {
     .option('-s, --state <state>', 'PR state (open, closed, all)', 'open')
     .option('--limit <number>', 'Maximum number of results', '30')
     .option('--json', 'Output as JSON')
-    .action(async (options) => {
+    .action(async (options: PRListOptions) => {
       try {
         const { owner, repo } = parseRepo(options.repo);
+        const limit = parsePositiveInteger(options.limit, '--limit');
         const octokit = await getOctokit();
 
         const result = await withRetry(async () =>
@@ -22,20 +53,20 @@ export function registerPRCommands(program: Command): void {
             owner,
             repo,
             state: options.state,
-            per_page: parseInt(options.limit),
+            per_page: limit,
           })
         );
 
-        const prs = result.data.map((pr) => ({
-          number: pr.number,
-          title: pr.title,
-          state: pr.state,
-          author: pr.user?.login,
-          created_at: pr.created_at,
-          url: pr.html_url,
+        const pullRequests = result.data.map((pullRequest) => ({
+          number: pullRequest.number,
+          title: pullRequest.title,
+          state: pullRequest.state,
+          author: pullRequest.user?.login,
+          created_at: pullRequest.created_at,
+          url: pullRequest.html_url,
         }));
 
-        output(prs, { json: options.json });
+        output(pullRequests, { json: options.json });
       } catch (err) {
         outputError('Failed to list PRs', err as Error);
         process.exit(1);
@@ -49,16 +80,17 @@ export function registerPRCommands(program: Command): void {
     .requiredOption('-p, --pr <number>', 'PR number')
     .requiredOption('-b, --body <body>', 'Comment body')
     .option('--json', 'Output as JSON')
-    .action(async (options) => {
+    .action(async (options: PRCommentOptions) => {
       try {
         const { owner, repo } = parseRepo(options.repo);
+        const pullRequestNumber = parsePositiveInteger(options.pr, '--pr');
         const octokit = await getOctokit();
 
         const result = await withRetry(async () =>
           octokit.rest.issues.createComment({
             owner,
             repo,
-            issue_number: parseInt(options.pr),
+            issue_number: pullRequestNumber,
             body: options.body,
           })
         );
@@ -86,9 +118,10 @@ export function registerPRCommands(program: Command): void {
     .requiredOption('-e, --event <event>', 'Review event (APPROVE, REQUEST_CHANGES, COMMENT)')
     .requiredOption('-b, --body <body>', 'Review body')
     .option('--json', 'Output as JSON')
-    .action(async (options) => {
+    .action(async (options: PRReviewOptions) => {
       try {
         const { owner, repo } = parseRepo(options.repo);
+        const pullRequestNumber = parsePositiveInteger(options.pr, '--pr');
         const octokit = await getOctokit();
 
         const validEvents = ['APPROVE', 'REQUEST_CHANGES', 'COMMENT'];
@@ -100,7 +133,7 @@ export function registerPRCommands(program: Command): void {
           octokit.rest.pulls.createReview({
             owner,
             repo,
-            pull_number: parseInt(options.pr),
+            pull_number: pullRequestNumber,
             event: options.event,
             body: options.body,
           })
@@ -129,9 +162,10 @@ export function registerPRCommands(program: Command): void {
     .requiredOption('-p, --pr <number>', 'PR number')
     .option('-m, --method <method>', 'Merge method (merge, squash, rebase)', 'merge')
     .option('--json', 'Output as JSON')
-    .action(async (options) => {
+    .action(async (options: PRMergeOptions) => {
       try {
         const { owner, repo } = parseRepo(options.repo);
+        const pullRequestNumber = parsePositiveInteger(options.pr, '--pr');
         const octokit = await getOctokit();
 
         const validMethods = ['merge', 'squash', 'rebase'];
@@ -143,7 +177,7 @@ export function registerPRCommands(program: Command): void {
           octokit.rest.pulls.merge({
             owner,
             repo,
-            pull_number: parseInt(options.pr),
+            pull_number: pullRequestNumber,
             merge_method: options.method,
           })
         );
