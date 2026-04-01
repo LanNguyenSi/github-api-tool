@@ -13,5 +13,5 @@ export declare function parseRepo(repoString: string): {
 /**
  * Handle GitHub API errors with retry logic
  */
-export declare function withRetry<T>(fn: () => Promise<T>, retries?: number): Promise<T>;
+export declare function withRetry<T>(fn: () => Promise<T>, retries?: number, baseDelayMs?: number): Promise<T>;
 //# sourceMappingURL=github.d.ts.map

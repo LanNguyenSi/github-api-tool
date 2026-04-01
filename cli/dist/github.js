@@ -25,8 +25,8 @@ export async function getOctokit() {
  * Parse repository string (owner/repo) into parts
  */
 export function parseRepo(repoString) {
-    const parts = repoString.split('/');
-    if (parts.length !== 2) {
+    const parts = repoString.split('/').map((part) => part.trim());
+    if (parts.length !== 2 || !parts[0] || !parts[1]) {
         throw new Error(`Invalid repository format: "${repoString}". Expected format: owner/repo`);
     }
     return { owner: parts[0], repo: parts[1] };
@@ -34,8 +34,8 @@ export function parseRepo(repoString) {
 /**
  * Handle GitHub API errors with retry logic
  */
-export async function withRetry(fn, retries = 3) {
-    let lastError = null;
+export async function withRetry(fn, retries = 3, baseDelayMs = 1000) {
+    let lastError;
     for (let i = 0; i < retries; i++) {
         try {
             return await fn();
@@ -45,17 +45,19 @@ export async function withRetry(fn, retries = 3) {
             // Don't retry on auth errors or client errors (4xx)
             if (error instanceof Error && 'status' in error) {
                 const status = error.status;
-                if (status && status >= 400 && status < 500) {
+                if (status && status >= 400 && status < 500 && status !== 429) {
                     throw error;
                 }
             }
             // Exponential backoff
             if (i < retries - 1) {
-                const delay = Math.pow(2, i) * 1000;
+                const delay = Math.pow(2, i) * baseDelayMs;
                 await new Promise((resolve) => setTimeout(resolve, delay));
             }
         }
     }
-    throw lastError;
+    throw lastError instanceof Error
+        ? lastError
+        : new Error('Operation failed after retries');
 }
 //# sourceMappingURL=github.js.map
