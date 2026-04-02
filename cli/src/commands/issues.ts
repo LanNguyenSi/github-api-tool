@@ -1,11 +1,49 @@
 import { Command } from 'commander';
 import { getOctokit, parseRepo, withRetry } from '../github.js';
+import { parsePositiveInteger } from '../utils/args.js';
 import { output, success, error as outputError } from '../utils/output.js';
 
 export function registerIssueCommands(program: Command): void {
   const issue = program
     .command('issue')
     .description('Manage GitHub issues');
+
+  interface IssueCreateOptions {
+    repo: string;
+    title: string;
+    body?: string;
+    labels?: string;
+    assignee?: string;
+    json?: boolean;
+  }
+
+  interface IssueListOptions {
+    repo: string;
+    state: 'open' | 'closed' | 'all';
+    labels?: string;
+    limit: string;
+    json?: boolean;
+  }
+
+  interface IssueAssignOptions {
+    repo: string;
+    issue: string;
+    assignee: string;
+    json?: boolean;
+  }
+
+  interface IssueCommentOptions {
+    repo: string;
+    issue: string;
+    body: string;
+    json?: boolean;
+  }
+
+  interface IssueCloseOptions {
+    repo: string;
+    issue: string;
+    json?: boolean;
+  }
 
   // Create issue
   issue
@@ -17,7 +55,7 @@ export function registerIssueCommands(program: Command): void {
     .option('-l, --labels <labels>', 'Comma-separated labels')
     .option('-a, --assignee <username>', 'Assignee username')
     .option('--json', 'Output as JSON')
-    .action(async (options) => {
+    .action(async (options: IssueCreateOptions) => {
       try {
         const { owner, repo } = parseRepo(options.repo);
         const octokit = await getOctokit();
@@ -62,9 +100,10 @@ export function registerIssueCommands(program: Command): void {
     .option('-l, --labels <labels>', 'Filter by comma-separated labels')
     .option('--limit <number>', 'Maximum number of results', '30')
     .option('--json', 'Output as JSON')
-    .action(async (options) => {
+    .action(async (options: IssueListOptions) => {
       try {
         const { owner, repo } = parseRepo(options.repo);
+        const limit = parsePositiveInteger(options.limit, '--limit');
         const octokit = await getOctokit();
 
         const labels = options.labels ? options.labels : undefined;
@@ -75,7 +114,7 @@ export function registerIssueCommands(program: Command): void {
             repo,
             state: options.state,
             labels,
-            per_page: parseInt(options.limit),
+            per_page: limit,
           })
         );
 
@@ -83,8 +122,8 @@ export function registerIssueCommands(program: Command): void {
           number: issue.number,
           title: issue.title,
           state: issue.state,
-          labels: issue.labels.map((l) => typeof l === 'string' ? l : l.name).filter(Boolean),
-          assignees: issue.assignees?.map((a) => a?.login).filter(Boolean) || [],
+          labels: issue.labels.map((l: string | { name?: string | null }) => typeof l === 'string' ? l : l.name).filter(Boolean),
+          assignees: issue.assignees?.map((a: { login?: string | null }) => a?.login).filter(Boolean) || [],
           created_at: issue.created_at,
           url: issue.html_url,
         }));
@@ -104,23 +143,24 @@ export function registerIssueCommands(program: Command): void {
     .requiredOption('-i, --issue <number>', 'Issue number')
     .requiredOption('-a, --assignee <username>', 'Assignee username')
     .option('--json', 'Output as JSON')
-    .action(async (options) => {
+    .action(async (options: IssueAssignOptions) => {
       try {
         const { owner, repo } = parseRepo(options.repo);
+        const issueNumber = parsePositiveInteger(options.issue, '--issue');
         const octokit = await getOctokit();
 
         const result = await withRetry(async () =>
           octokit.rest.issues.addAssignees({
             owner,
             repo,
-            issue_number: parseInt(options.issue),
+            issue_number: issueNumber,
             assignees: [options.assignee],
           })
         );
 
         output({
           number: result.data.number,
-          assignees: result.data.assignees?.map((a) => a?.login).filter(Boolean) || [],
+          assignees: result.data.assignees?.map((a: { login?: string | null }) => a?.login).filter(Boolean) || [],
         }, { json: options.json });
 
         if (!options.json) {
@@ -140,16 +180,17 @@ export function registerIssueCommands(program: Command): void {
     .requiredOption('-i, --issue <number>', 'Issue number')
     .requiredOption('-b, --body <body>', 'Comment body')
     .option('--json', 'Output as JSON')
-    .action(async (options) => {
+    .action(async (options: IssueCommentOptions) => {
       try {
         const { owner, repo } = parseRepo(options.repo);
+        const issueNumber = parsePositiveInteger(options.issue, '--issue');
         const octokit = await getOctokit();
 
         const result = await withRetry(async () =>
           octokit.rest.issues.createComment({
             owner,
             repo,
-            issue_number: parseInt(options.issue),
+            issue_number: issueNumber,
             body: options.body,
           })
         );
@@ -176,16 +217,17 @@ export function registerIssueCommands(program: Command): void {
     .requiredOption('-r, --repo <owner/repo>', 'Repository')
     .requiredOption('-i, --issue <number>', 'Issue number')
     .option('--json', 'Output as JSON')
-    .action(async (options) => {
+    .action(async (options: IssueCloseOptions) => {
       try {
         const { owner, repo } = parseRepo(options.repo);
+        const issueNumber = parsePositiveInteger(options.issue, '--issue');
         const octokit = await getOctokit();
 
         const result = await withRetry(async () =>
           octokit.rest.issues.update({
             owner,
             repo,
-            issue_number: parseInt(options.issue),
+            issue_number: issueNumber,
             state: 'closed',
           })
         );

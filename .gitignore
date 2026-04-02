@@ -1,1 +1,6 @@
+<<<<<<< HEAD
 cli/node_modules/
+=======
+node_modules/
+.vitest-cache/
+>>>>>>> eb2344d2ed7c9ee7982bb7eb71cde665f3600c22
