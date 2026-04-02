@@ -4,6 +4,7 @@ import { registerIssueCommands } from './commands/issues.js';
 import { registerBugReportCommands } from './commands/bug-report.js';
 import { registerCoverageCheckCommands } from './commands/coverage-check.js';
 import { registerPRCommands } from './commands/prs.js';
+import { registerStandupCommands } from './commands/standup.js';
 import { registerRepoCommands } from './commands/repos.js';
 import { saveConfig } from './utils/config.js';
 import { success, error as outputError } from './utils/output.js';
@@ -36,6 +37,7 @@ registerPRCommands(program);
 registerRepoCommands(program);
 registerBugReportCommands(program);
 registerCoverageCheckCommands(program);
+registerStandupCommands(program);
 // Parse arguments
 program.parse();
 //# sourceMappingURL=index.js.map
