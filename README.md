@@ -7,6 +7,7 @@ A command-line interface for GitHub API operations, designed for OpenClaw AI age
 ✅ **Issue Management:** Create, list, assign, comment, close  
 ✅ **Pull Request Operations:** List, comment, review, merge  
 ✅ **Repository Info:** Commits, contributors, repository details  
+✅ **Standup Digest:** Daily commit overview across multiple repos  
 ✅ **JSON Output Mode:** Machine-readable output for programmatic use  
 ✅ **Error Handling:** Automatic retry with exponential backoff  
 ✅ **Type-Safe:** Full TypeScript implementation with strict mode
@@ -95,6 +96,27 @@ github repo contributors --repo LanNguyenSi/frost
 github repo info --repo LanNguyenSi/frost
 ```
 
+### Standup Digest
+
+Show all commits across repos for a given time range — ideal for daily standups or async team updates.
+
+```bash
+# All repos for the last day (default)
+github standup -o LanNguyenSi
+
+# Last 7 days
+github standup -o LanNguyenSi -d 7
+
+# Specific repos only
+github standup -o LanNguyenSi -r agent-entrypoint github-api-tool
+
+# Filter by author
+github standup -o LanNguyenSi --author lavaclawdbot
+
+# JSON output for scripting
+github standup -o LanNguyenSi -d 3 --json
+```
+
 ### JSON Output Mode
 
 Add `--json` flag to any command for machine-readable output:
@@ -135,7 +157,10 @@ cli/
 │   ├── commands/
 │   │   ├── issues.ts      # Issue commands
 │   │   ├── prs.ts         # PR commands
-│   │   └── repos.ts       # Repository commands
+│   │   ├── repos.ts       # Repository commands
+│   │   ├── standup.ts     # Standup digest command
+│   │   ├── bug-report.ts  # Bug report command
+│   │   └── coverage-check.ts  # Coverage check command
 │   └── utils/
 │       ├── config.ts      # Token/config management
 │       └── output.ts      # Formatted output (JSON/table)
