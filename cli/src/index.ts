@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { registerIssueCommands } from './commands/issues.js';
+import { registerBugReportCommands } from './commands/bug-report.js';
+import { registerCoverageCheckCommands } from './commands/coverage-check.js';
 import { registerPRCommands } from './commands/prs.js';
 import { registerRepoCommands } from './commands/repos.js';
 import { saveConfig } from './utils/config.js';
@@ -35,6 +37,8 @@ program
 registerIssueCommands(program);
 registerPRCommands(program);
 registerRepoCommands(program);
+registerBugReportCommands(program);
+registerCoverageCheckCommands(program);
 
 // Parse arguments
 program.parse();
